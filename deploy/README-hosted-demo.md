@@ -64,6 +64,21 @@ gcloud secrets create legalmemory-demo-env --data-file=.env.demo --project="$PRO
 gcloud secrets versions add legalmemory-demo-env --data-file=.env.demo --project="$PROJECT"
 ```
 
+## Published notices
+
+The hosted demo is public, collects sign-ups through Clerk, and sends what a
+visitor types to a language model. It therefore has to point at terms and a
+privacy notice, and `.env.demo` must set both:
+
+```
+DEMO_TERMS_URL=https://eigenweltlabs.com/legalmemory/terms
+DEMO_PRIVACY_URL=https://eigenweltlabs.com/legalmemory/privacy
+```
+
+They render on the sign-in screen, above the sign-up form, together with the
+reminder not to enter client or matter data. Leaving them unset renders nothing
+— which is right for a firm running the appliance itself, and wrong here.
+
 ## Repository configuration
 
 Variables: `GCP_PROJECT`, `GCP_REGION`, `GCE_INSTANCE`, `GCE_ZONE`, `DEMO_DOMAIN`.
