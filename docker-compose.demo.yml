@@ -196,6 +196,11 @@ services:
       DEMO_OAUTH_CLIENT_ID: ${DEMO_OAUTH_CLIENT_ID-}
       # The public URL clients reach, for OAuth discovery behind a proxy.
       DEMO_PUBLIC_URL: ${DEMO_PUBLIC_URL-}
+      # Terms and privacy notice for THIS deployment, shown on the sign-in
+      # screen. Unset renders nothing: they belong to whoever operates the
+      # deployment, so a firm running this itself must not show Eigenwelt's.
+      DEMO_TERMS_URL: ${DEMO_TERMS_URL-}
+      DEMO_PRIVACY_URL: ${DEMO_PRIVACY_URL-}
     ports:
       - "127.0.0.1:${DEMO_PORT:-3200}:3000"
     depends_on:

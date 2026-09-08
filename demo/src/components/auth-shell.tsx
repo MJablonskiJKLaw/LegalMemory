@@ -73,6 +73,8 @@ export function AuthShell({
 
           <div className="mt-6 w-full sm:mt-8">{children}</div>
 
+          <LegalNotice />
+
           {/* The header shows these only to somebody who signed in, and most
               visitors never do — the door is where they turn around. The same
               three links, in the chrome's own mono, below the form rather than
@@ -98,6 +100,38 @@ export function AuthShell({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The one warning that has to arrive before anyone types, and the notices that
+ * govern this deployment.
+ *
+ * Env-driven and absent by default: these terms belong to the deployment that
+ * publishes them, so a firm running the demo on its own infrastructure must not
+ * be made to show Eigenwelt's. Set both URLs (or neither) — a hosted demo that
+ * collects sign-ups owes the reader somewhere to read what happens to them.
+ */
+function LegalNotice() {
+  const terms = process.env.DEMO_TERMS_URL;
+  const privacy = process.env.DEMO_PRIVACY_URL;
+  if (!terms || !privacy) return null;
+
+  const link = "underline decoration-white/25 underline-offset-4 hover:text-white/70";
+  return (
+    <p className="mt-6 text-center text-[11.5px] leading-relaxed text-white/40 sm:mt-8">
+      A demonstration instance holding a synthetic corpus. Please don&apos;t enter
+      client, matter, or otherwise confidential data — what you type is sent to a
+      language model to answer it.
+      <br />
+      <a className={link} href={terms} target="_blank" rel="noopener noreferrer">
+        Terms of use
+      </a>
+      {" · "}
+      <a className={link} href={privacy} target="_blank" rel="noopener noreferrer">
+        Privacy
+      </a>
+    </p>
   );
 }
 
