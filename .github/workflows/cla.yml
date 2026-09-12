@@ -1,0 +1,68 @@
+name: CLA
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+  actions: write
+
+# Signature writes share one file; do not cancel an acceptance being recorded.
+concurrency:
+  group: cla-signatures
+  cancel-in-progress: false
+
+jobs:
+  cla:
+    name: CLA signature
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request &&
+       (github.event.comment.body == 'recheck' ||
+        github.event.comment.body == 'I have read the LegalMemory CLA version 1.0 and I hereby sign it.'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate contributor coverage
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const pull_number = context.issue.number;
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number });
+            // The pinned CLA action reads only the first 100 commits.
+            if (pr.commits > 100) {
+              throw new Error('Split this PR into at most 100 commits so every author is checked.');
+            }
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              ...context.repo, pull_number, per_page: 100
+            });
+            if (!commits.length || commits.length !== pr.commits) {
+              throw new Error('Incomplete commit list; rerun the CLA check.');
+            }
+            const emails = new Set(commits.map(c => c.commit.author.email.toLowerCase()));
+            for (const c of commits) {
+              if (!c.author || c.author.type !== 'User') {
+                throw new Error(`Commit ${c.sha} needs a human author with a GitHub-linked email; automated or imported work needs an accountable contributor.`);
+              }
+              for (const line of c.commit.message.split('\n')) {
+                if (!/^co-authored-by:/i.test(line)) continue;
+                const match = line.match(/^co-authored-by:.*<([^>]+)>\s*$/i);
+                if (!match || !emails.has(match[1].toLowerCase())) {
+                  throw new Error('Each co-author must also author a commit in this PR so the CLA action checks their acceptance.');
+                }
+              }
+            }
+      # Never check out or execute PR code in this privileged workflow.
+      - uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: signatures/legalmemory-v1.json
+          path-to-document: https://github.com/eigenweltlabs/LegalMemory/blob/main/CLA.md
+          branch: cla-signatures
+          custom-pr-sign-comment: 'I have read the LegalMemory CLA version 1.0 and I hereby sign it.'
+          lock-pullrequest-aftermerge: false
