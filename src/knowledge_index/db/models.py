@@ -26,6 +26,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -1262,3 +1263,29 @@ class BackupSecret(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class MailFiling(TimestampMixin, Base):
+    """An authenticated, deliberately matter-bound original; never provider-owned."""
+
+    __tablename__ = "mail_filings"
+    __table_args__ = (UniqueConstraint("matter_id", "actor_id", "replay_key", name="uq_mail_filing_replay"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    matter_id: Mapped[str] = mapped_column(ForeignKey("matters.id"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    actor_id: Mapped[str] = mapped_column(String(512))
+    replay_key: Mapped[str] = mapped_column(String(100))
+    manifest_hash: Mapped[str] = mapped_column(String(64))
+    manifest: Mapped[dict] = mapped_column(JSONVariant)
+    state: Mapped[str] = mapped_column(String(20), default="uploading")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    source_id: Mapped[str | None] = mapped_column(ForeignKey("sources.id"))
+    receipt: Mapped[dict | None] = mapped_column(JSONVariant)
+
+
+class MailFilingChunk(Base):
+    __tablename__ = "mail_filing_chunks"
+    filing_id: Mapped[str] = mapped_column(ForeignKey("mail_filings.id"), primary_key=True)
+    part: Mapped[int] = mapped_column(Integer, primary_key=True)
+    offset: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)

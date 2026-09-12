@@ -237,7 +237,7 @@ class AccessService:
             .where(
                 DocumentVersionSource.version_id == DocumentVersion.id,
                 SourceObject.deleted_at.is_(None),
-                Source.kind == "local_fs",
+                Source.kind.in_(["local_fs", "mail_filing"]),
                 ~exists(
                     select(SourceObjectGrant.id).where(
                         SourceObjectGrant.source_object_id == SourceObject.id

@@ -692,6 +692,11 @@ class PipelineRunner:
         source = session.get(Source, source_object.source_id)
         if source is None:
             raise ValueError("source record does not exist")
+        if source.kind == "mail_filing":
+            blob = session.get(Blob, source_object.content_hash)
+            if not blob or not blob.cached_path or not Path(blob.cached_path).is_file():
+                raise RetryableStageError("retained filing original is unavailable")
+            return StageResult()
         connector = self._connector_for(source, session)
         with self._open_content(connector, source_object) as stream:
             stored = self.artifact_store.put_blob(
@@ -742,6 +747,9 @@ class PipelineRunner:
         source = session.get(Source, source_object.source_id)
         if source is None:
             raise RetryableStageError("source record is missing")
+        if source.kind == "mail_filing":
+            self._assert_filing_entity(session, source_object)
+            return StageResult()
         converted = _required_artifact(session, source_object.content_hash, "structured_json")
         text = (converted.payload or {}).get("text", "")
         folder = _parent_folder(source_object.path)
@@ -985,10 +993,25 @@ class PipelineRunner:
         self._apply_relation_intents(session, source_object.id)
         return StageResult()
 
+    def _assert_filing_entity(self, session: Session, source_object: SourceObject) -> None:
+        """A deliberate matter filing cannot be reclassified or merged by a model."""
+        assignment = session.get(MatterAssignment, source_object.id)
+        source = session.get(Source, source_object.source_id)
+        entities = session.execute(select(Document, DocumentVersion).join(DocumentVersion).join(DocumentVersionSource).where(DocumentVersionSource.source_object_id == source_object.id)).all()
+        if not assignment or not source or len(entities) != 1:
+            raise RetryableStageError("filing association is unavailable")
+        document, version = entities[0]
+        if document.matter_id != assignment.matter_id or document.project_id != source.project_id or version.content_hash != source_object.content_hash:
+            raise RetryableStageError("filing association changed")
+
     def _relate(self, session: Session, state: ProcessingState) -> StageResult:
         """Relate one arriving file using its local filing context and selective reads."""
         state_id = state.id
         source_object = _source_object_with_hash(session, state)
+        source = session.get(Source, source_object.source_id)
+        if source and source.kind == "mail_filing":
+            self._assert_filing_entity(session, source_object)
+            return StageResult()
         source_object_id = source_object.id
         content_hash = source_object.content_hash
         assignment = session.get(MatterAssignment, source_object.id)
@@ -1870,6 +1893,9 @@ class PipelineRunner:
         source_object = session.get(SourceObject, source_object_id)
         if source_object is None or source_object.deleted_at is not None or not source_object.content_hash:
             return None
+        source = session.get(Source, source_object.source_id)
+        if source and source.kind == "mail_filing":
+            return None  # A model cannot merge another file into an immutable filing.
         assignment = session.get(MatterAssignment, source_object.id)
         matter = session.get(Matter, assignment.matter_id) if assignment else None
         if matter is None:

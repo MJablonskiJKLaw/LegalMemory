@@ -1488,6 +1488,8 @@ def create_mcp_server(
             finally:
                 session.close()
 
+    from knowledge_index.mail_filing_mcp import register_mail_filing_tools
+    register_mail_filing_tools(mcp, session_factory, config_provider, audited_call)
     return mcp
 
 
