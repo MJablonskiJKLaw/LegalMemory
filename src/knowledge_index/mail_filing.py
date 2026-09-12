@@ -9,6 +9,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import uuid4
@@ -72,6 +73,18 @@ def _canonical(value: dict) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+def _sync_blob_publication(path):
+    """Persist the file's directory entry and every newly created ancestor link."""
+    # The appliance uses a local POSIX filesystem. Failure prevents the SQL receipt
+    # commit; shared content addresses are deliberately never removed on rollback.
+    for directory in path.parents:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
 class MailFilingService:
     def __init__(self, session: Session, artifact_store: LocalArtifactStore, identity: Identity):
         self.session, self.artifacts, self.identity = session, artifact_store, identity
@@ -96,17 +109,21 @@ class MailFilingService:
         return matter
 
     def destinations(self, *, offset: int = 0, limit: int = 50) -> dict:
-        if not 0 <= offset <= 10000 or not 1 <= limit <= 100:
+        if not 0 <= offset <= 2147483647 or not 1 <= limit <= 100:
             raise ValueError("invalid page")
-        # Filter authorization before titles/counts; bound the source catalogue.
-        visible = []
-        for matter in self.session.scalars(select(Matter).order_by(Matter.id).limit(10001)):
-            try:
-                self._matter(matter.id, write=True)
-            except PermissionError:
-                continue
-            visible.append({"id": matter.id, "title": matter.title, "project_id": matter.project_id})
-        return {"version": 1, "principal_key": hashlib.sha256(self.identity.subject.encode()).hexdigest(), "results": visible[offset:offset + limit], "next_offset": offset + limit if offset + limit < len(visible) else None}
+        grant = select(ProjectGrant.project_id).where(
+            ProjectGrant.project_id == Matter.project_id,
+            ProjectGrant.principal.in_(sorted(self.principals)),
+        )
+        allowed = grant.where(ProjectGrant.effect == "allow", ProjectGrant.role.in_(["editor", "admin", "owner"])).exists()
+        denied = grant.where(ProjectGrant.effect == "deny").exists()
+        query = select(Matter).join(Project, Project.id == Matter.project_id).where(
+            Project.status == "active", ~denied,
+            True if self.access.is_admin(self.principals) else allowed,
+        ).order_by(Matter.id).offset(offset).limit(limit + 1)
+        rows = list(self.session.scalars(query))
+        visible = [{"id": matter.id, "title": matter.title, "project_id": matter.project_id} for matter in rows[:limit]]
+        return {"version": 1, "principal_key": hashlib.sha256(self.identity.subject.encode()).hexdigest(), "results": visible, "next_offset": offset + limit if len(rows) > limit else None}
 
     def purge_expired(self) -> None:
         expired = select(MailFiling.id).where(MailFiling.state == "uploading", MailFiling.expires_at < datetime.now(UTC))
@@ -206,6 +223,7 @@ class MailFilingService:
             if len(data) != part.size or hashlib.sha256(data).hexdigest() != part.sha256:
                 raise ValueError("filing hash differs")
             stored = self.artifacts.put_blob(io.BytesIO(data), max_bytes=MAX_BYTES)
+            _sync_blob_publication(stored.path)
             # An existing content address may have suffered corruption. Never publish it blindly.
             if stored.path.stat().st_size != part.size or hashlib.sha256(stored.path.read_bytes()).hexdigest() != part.sha256:
                 raise ValueError("stored original failed verification")

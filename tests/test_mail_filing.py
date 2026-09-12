@@ -202,3 +202,44 @@ def test_migration_matches_model_and_rolls_back(fixture):
             columns = inspect(connection).get_columns(table.name)
             assert {column["name"] for column in columns} == set(table.columns.keys())
             assert {tuple(fk["constrained_columns"]) for fk in inspect(connection).get_foreign_keys(table.name)} == {tuple(element.parent.name for element in constraint.elements) for constraint in table.foreign_key_constraints}
+
+
+def test_directory_publication_failure_never_commits_receipt(fixture, monkeypatch):
+    import knowledge_index.mail_filing as module
+    factory, artifacts = fixture
+    with factory.begin() as session:
+        started = service(session, artifacts).begin("m1", "durability", manifest())
+    for part, data in enumerate((RAW, ATTACHMENT)):
+        with factory.begin() as session:
+            service(session, artifacts).chunk(started["id"], part, 0, base64.b64encode(data).decode())
+    original = module._sync_blob_publication
+    def fail(path):
+        raise OSError("synthetic directory fsync failure")
+    monkeypatch.setattr(module, "_sync_blob_publication", fail)
+    with pytest.raises(OSError), factory.begin() as session:
+        service(session, artifacts).commit(started["id"])
+    with factory.begin() as session:
+        assert session.get(MailFiling, started["id"]).state == "uploading"
+        assert session.scalar(select(func.count()).select_from(Document)) == 0
+        assert session.scalar(select(func.count()).select_from(MailFilingChunk)) == 2
+    monkeypatch.setattr(module, "_sync_blob_publication", original)
+    with factory.begin() as session:
+        assert service(session, artifacts).commit(started["id"])["state"] == "committed"
+
+
+def test_destinations_page_authorized_rows_before_offset(fixture):
+    factory, artifacts = fixture
+    with factory.begin() as session:
+        for index in range(105):
+            session.add(Matter(id=f"later-{index:03}", project_id="p1", title="Later"))
+        session.add(ProjectGrant(project_id="p2", principal="user:writer", effect="deny", role="viewer"))
+    found = []
+    offset = 0
+    while offset is not None:
+        with factory.begin() as session:
+            page = service(session, artifacts).destinations(offset=offset, limit=17)
+        found.extend(item["id"] for item in page["results"])
+        offset = page["next_offset"]
+    assert len(found) == 106
+    assert len(set(found)) == 106
+    assert "m2" not in found
