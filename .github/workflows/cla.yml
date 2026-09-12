@@ -62,7 +62,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path-to-signatures: signatures/legalmemory-v1.json
-          path-to-document: https://github.com/eigenweltlabs/LegalMemory/blob/main/CLA.md
+          path-to-document: https://github.com/eigenweltlabs/LegalMemory/blob/241a63e8449e0887c5b070262c541ab1953d7150/CLA.md
           branch: cla-signatures
           custom-pr-sign-comment: 'I have read the LegalMemory CLA version 1.0 and I hereby sign it.'
           lock-pullrequest-aftermerge: false
