@@ -137,3 +137,31 @@ that no integration test skipped and at least one ran. A skipped backup test is 
 exit code over an estate nothing checked, which is the same failure as a backup reporting
 success with six of ten components.
 
+
+
+## Contributor licence agreement
+
+`cla.yml` runs on trusted base-branch code for fork PRs and signing comments; it
+never checks out a PR. It uses a commit-pinned CLA Assistant v2.6.1. Upstream is
+archived, so review its implementation before upgrading or replacing it. A
+preflight rejects more than 100 commits, unlinked/bot authors and co-authors
+without a primary-author commit, covering limitations of this pinned action.
+Every human contributor must accept; there is no maintainer allowlist.
+
+Before rollout, create an unprotected `cla-signatures` branch. The action creates
+`signatures/legalmemory-v1.json` there on first use; do not pre-create the JSON.
+Restrict manual edits to the records operationally and preserve their history.
+The shared concurrency group serializes writes (GitHub can replace pending
+runs; rerun a displaced PR check). No PAT or third-party account is needed.
+
+After merging, exercise a fork PR: unsigned fails and prompts, the contributor's
+exact acceptance comment records a signature, recheck succeeds, and another
+unsigned author makes it fail again. Then require **CLA signature** in the
+`main` branch rules, preserving existing rules. Do not require the issue-comment
+workflow's overall run status. The PR check is the merge gate. Never manually
+mark someone as signed or accept the agreement on their behalf.
+
+The agreement URL is pinned to its original Git commit. For material changes,
+create a new version, pin that text, change the acceptance phrase and use a new
+signature file. Existing signatures must not silently accept changed terms.
+These checks apply prospectively; they do not establish rights in earlier work.

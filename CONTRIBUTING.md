@@ -76,18 +76,19 @@ LegalMemory is released under the [GNU Affero General Public License v3.0](LICEN
 and Eigenwelt Labs additionally offers it under a commercial licence to
 organisations that cannot take on the AGPL's terms.
 
-Both halves of that have to hold at once, which is why we ask for a Contributor
-Licence Agreement before merging your first pull request. By signing it you keep
-the copyright in your work and grant Eigenwelt Labs a licence to distribute it
-under the AGPL **and** under commercial terms. Without that grant a single
-contribution would make the commercial licence unofferable for the whole file it
-touches — not because the contribution is unwelcome, but because nobody would
-hold the rights needed to offer it.
+Before merging contributions, we require acceptance of the
+[LegalMemory Contributor Licence Agreement, version 1.0](CLA.md). You retain
+copyright and grant the rights needed for both AGPL and commercial distribution.
+A DCO sign-off alone does not grant those additional licensing rights.
 
-Open a pull request as normal; we will point you at the agreement before the
-first merge. Contributions of code you did not write yourself must name their
-origin and licence in the pull request, and we cannot accept code under a
-copyleft licence (GPL, AGPL, SSPL or similar) into this repository, because
-including it would end the dual-licence arrangement. Permissively licensed code
-(MIT, BSD, Apache-2.0) is fine when its notices travel with it — see
-[NOTICE](NOTICE) for how the existing cases are recorded.
+Open a pull request as normal. The CLA workflow prompts each contributor to
+read the agreement and post its exact acceptance comment. Once recorded,
+acceptance is reused for later PRs under the same agreement version. Link your
+commit email to your GitHub account so the workflow can identify you. Only sign
+if you have authority to grant the rights, including any employer permission.
+
+Contributions of code you did not write yourself must name their origin and
+licence in the pull request and preserve required notices; see [NOTICE](NOTICE).
+Third-party copyleft material requires separate permission compatible with
+commercial distribution. A CLA cannot grant rights in someone else's code.
+Maintainers must review third-party material even when the automated check passes.
