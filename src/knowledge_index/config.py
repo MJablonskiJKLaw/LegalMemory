@@ -155,9 +155,9 @@ class PipelineConfig(BaseModel):
     # rejected by easyocr, surfaces as a Docling 4xx and quarantines the document. Verify
     # a new set on one scanned file before starting a full run.
     #
-    # Changing this does not re-convert what is already converted: the convert stage is
-    # idempotent on the content hash. Use "Re-run all files" on the pipeline page to
-    # requeue documents that were converted under the previous set.
+    # Changing this does not automatically re-convert existing documents. Use "Re-run
+    # all files" on the Parse stage to bump its version and regenerate OCR output;
+    # retries and duplicate files still reuse the conversion for the current version.
     ocr_languages: list[str] = Field(default_factory=lambda: ["de", "en"], min_length=1)
 
     @field_validator("ocr_languages")
